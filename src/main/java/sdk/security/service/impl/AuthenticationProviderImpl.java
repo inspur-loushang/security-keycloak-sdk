@@ -21,14 +21,12 @@ public class AuthenticationProviderImpl implements IAuthenticationProvider {
 	 * @return String userId[用户ID]
 	 */
 	public String getLoginUserId() {
-
-		AccessToken token = KeycloakUtil.getAccessToken();
-		if (token != null) {
+		try {
+			AccessToken token = KeycloakUtil.getAccessToken();
 			return token.getPreferredUsername();
-		} else {
+		} catch (Exception e) {
 			return null;
 		}
-
 	}
 
 	/**
@@ -37,9 +35,11 @@ public class AuthenticationProviderImpl implements IAuthenticationProvider {
 	 * @return String，token信息
 	 */
 	public String getToken() {
-		// 本地会话存储的token
-		KeycloakSecurityContext context = KeycloakUtil.getKeycloakSecurityContext();
-		return context.getTokenString();
+		try {
+			return KeycloakUtil.getAccessTokenString();
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	/**
@@ -48,30 +48,29 @@ public class AuthenticationProviderImpl implements IAuthenticationProvider {
 	 * @return
 	 */
 	public String getKrbPrincipalName() {
-		KeycloakSecurityContext context = KeycloakUtil.getKeycloakSecurityContext();
-		AccessToken token = context.getToken();
-		if (token != null) {
+		try {
+			KeycloakSecurityContext context = KeycloakUtil.getKeycloakSecurityContext();
+			AccessToken token = context.getToken();
 			return token.getPreferredUsername() + "-" + context.getRealm();
-		} else {
+		} catch (Exception e) {
 			return null;
 		}
 	}
-	
+
 	/**
 	 * 获取当前登录用户的详细信息
 	 * 
-	 * @return Map，key分别为：
-	 *         userId[用户标识]，userName[用户名]，email[邮箱地址]，...
+	 * @return Map，key分别为： userId[用户标识]，userName[用户名]，email[邮箱地址]，...
 	 */
 	public Map<String, String> getLoginUserInfo() {
-		AccessToken token = KeycloakUtil.getAccessToken();
-		if (token != null) {
+		try {
+			AccessToken token = KeycloakUtil.getAccessToken();
 			Map<String, String> map = new HashMap<String, String>();
 			map.put("userId", token.getPreferredUsername());
 			map.put("userName", token.getPreferredUsername());
 			map.put("email", token.getEmail());
 			return map;
-		} else {
+		} catch (Exception e) {
 			return null;
 		}
 	}

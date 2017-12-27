@@ -29,8 +29,7 @@ public class MenuProviderImpl implements IMenuProvider {
 	 * @param parentId[父级菜单id,可以为空]
 	 * @return
 	 */
-    @SuppressWarnings("unchecked")
-	public String getAuthzMenu(String parentId) {
+    public String getAuthzMenu(String parentId) {
 
 		List<Menu> dirSubMenus = getMenuWithBean(parentId);
 	    List<Menu> menus = new ArrayList<Menu>();
@@ -74,7 +73,6 @@ public class MenuProviderImpl implements IMenuProvider {
      * @param parentId[父级菜单id,可以为空]
      * @return
      */
-    @SuppressWarnings("unchecked")
     public String getMenu(String parentId) {
         List<Menu> list = getMenuWithBean(parentId);
         
