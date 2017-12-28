@@ -46,6 +46,19 @@ public class MenuProviderImpl implements IMenuProvider {
 	    return gson.toJson(menus);
 	}
 
+    /**
+     * 获取菜单
+     * 
+     * @param parentId[父级菜单id,可以为空]
+     * @return
+     */
+    public String getMenu(String parentId) {
+    	List<Menu> list = getMenuWithBean(parentId);
+    	
+    	Gson gson = new Gson();
+    	return gson.toJson(list);
+    }
+    
 	/**
 	 * 获取菜单
 	 * 
@@ -67,18 +80,6 @@ public class MenuProviderImpl implements IMenuProvider {
 		return dirSubMenus;
 	}
 	
-	   /**
-     * 获取菜单
-     * 
-     * @param parentId[父级菜单id,可以为空]
-     * @return
-     */
-    public String getMenu(String parentId) {
-        List<Menu> list = getMenuWithBean(parentId);
-        
-        Gson gson = new Gson();
-        return gson.toJson(list);
-    }
 
 	private void getDirectSubMenu(Map<String, Object> map, List<Menu> menus) {
 
