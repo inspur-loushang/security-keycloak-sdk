@@ -4,7 +4,7 @@
 
 	<groupId>com.inspur.security</groupId>
 	<artifactId>security-keycloak-sdk</artifactId>
-	<version>0.9.5</version>
+	<version>1.0.0</version>
 	<packaging>jar</packaging>
 
 	<properties>
@@ -18,7 +18,7 @@
 		<dependency>
 			<groupId>com.inspur.security</groupId>
 			<artifactId>security-sdk</artifactId>
-			<version>0.9.5</version>
+			<version>1.0.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.keycloak</groupId>
