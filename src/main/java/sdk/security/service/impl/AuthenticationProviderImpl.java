@@ -41,6 +41,14 @@ public class AuthenticationProviderImpl implements IAuthenticationProvider {
 			return null;
 		}
 	}
+	
+	public String getIDToken() {
+		try {
+			return KeycloakUtil.getIDTokenString();
+		} catch (Exception e) {
+			return null;
+		}
+	}
 
 	/**
 	 * 获取当前登录用户userId-realmname

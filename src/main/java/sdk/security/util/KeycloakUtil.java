@@ -28,6 +28,10 @@ public class KeycloakUtil {
 		return getKeycloakSecurityContext().getTokenString();
 	}
 
+	public static String getIDTokenString() {
+		return getKeycloakSecurityContext().getIdTokenString();
+	}
+	
 	public static String getRealm() {
 		return getKeycloakSecurityContext().getRealm();
 
