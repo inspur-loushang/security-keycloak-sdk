@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClientException;
 import sdk.security.service.IUserProvider;
 import sdk.security.util.KeycloakUtil;
 import sdk.security.util.RestRequestProvider;
+import sdk.security.util.SecurityProvider;
 
 /**
  * 
@@ -73,6 +74,24 @@ public class UserProviderImpl implements IUserProvider {
         }
         String queryApi = KeycloakUtil.getSecurityContextUrl()+"/admin/realms/{realm}/users";
         return RestRequestProvider.get(queryApi, List.class, uriVariables, queryParams);
+    }
+    
+    /**
+     * 查询租户的用户
+     */
+    public List queryUsers(Map queryParams) {
+    	if(queryParams.get("userName") != null) {
+    		String firstName = (String) queryParams.remove("userName");
+    		queryParams.put("firstName", firstName);
+    	}
+    	
+    	if(queryParams.get("userId") != null) {
+    		String userName = (String) queryParams.remove("userId");
+    		queryParams.put("username", userName);
+    	}
+    	
+    	String tenantRealm = SecurityProvider.getTenantRealm();
+    	return queryUsers(queryParams, tenantRealm);
     }
 
 }
