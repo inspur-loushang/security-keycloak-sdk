@@ -2,6 +2,8 @@ package sdk.security.util;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Map;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -34,7 +36,33 @@ public class KeycloakUtil {
 	
 	public static String getRealm() {
 		return getKeycloakSecurityContext().getRealm();
-
+	}
+	
+	public static String getTenantRealm() {
+		// 获取当前Realm
+		String presentRealm = getRealm();
+		
+		/*
+		 * 如果当前是Master Realm，则从Access Token的resource_access中获取对应的租户Realm；
+		 * 否则，直接返回当前Realm
+		 */
+		if("master".equalsIgnoreCase(presentRealm)) {
+			AccessToken accessToken = getAccessToken();
+			Map<String, AccessToken.Access> resourcAccesses = accessToken.getResourceAccess();
+			Set<String> clients = resourcAccesses.keySet();
+			for (String client : clients) {
+				if (client.endsWith("-realm") && !"master-realm".equalsIgnoreCase(client)) {
+					presentRealm = client.substring(0, client.indexOf("-realm"));
+					// 一个管理员仅对应一个Realm
+					break;
+				}
+			}
+			if("superadmin".equalsIgnoreCase(accessToken.getPreferredUsername())) {
+				// TODO 超级管理员
+			}
+		}
+		
+		return presentRealm;		
 	}
 
 	public static String getSecurityContextUrl() {

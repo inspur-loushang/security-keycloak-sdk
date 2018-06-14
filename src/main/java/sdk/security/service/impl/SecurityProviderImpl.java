@@ -41,30 +41,7 @@ public class SecurityProviderImpl implements ISecurityProvider {
     }
     
     public String getTenantRealm() {
-    	// 获取当前Realm
-		String presentRealm = KeycloakUtil.getRealm();
-		
-		/*
-		 * 如果当前是Master Realm，则从Access Token的resource_access中获取对应的租户Realm；
-		 * 否则，直接返回当前Realm
-		 */
-		if("master".equalsIgnoreCase(presentRealm)) {
-			AccessToken accessToken = KeycloakUtil.getKeycloakSecurityContext().getToken();
-			Map<String, AccessToken.Access> resourcAccesses = accessToken.getResourceAccess();
-			Set<String> clients = resourcAccesses.keySet();
-			for (String client : clients) {
-				if (client.endsWith("-realm") && !"master-realm".equalsIgnoreCase(client)) {
-					presentRealm = client.substring(0, client.indexOf("-realm"));
-					// 一个管理员仅对应一个Realm
-					break;
-				}
-			}
-			if("superadmin".equalsIgnoreCase(accessToken.getPreferredUsername())) {
-				// TODO 超级管理员
-			}
-		}
-		
-		return presentRealm;
+    	return KeycloakUtil.getTenantRealm();
 	}
 
 	public Map<String, String> getTenantAdminUser() {
