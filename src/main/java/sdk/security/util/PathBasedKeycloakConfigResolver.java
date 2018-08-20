@@ -1,10 +1,11 @@
 package sdk.security.util;
 
 import com.google.gson.Gson;
+
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.io.StringBufferInputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,12 +28,13 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 
 	private final Map<String, KeycloakDeployment> cache = new ConcurrentHashMap();
 
+	@Deprecated	
 	public static KeycloakDeployment nowDeployment = null;
-
+	
 	public KeycloakDeployment resolve(Request request) {
 		String realm = null;
 		String path = request.getURI();
-
+		
 		// get realm from request url
 		int multitenantIndex = path.indexOf("?realm=");
 		if (multitenantIndex > -1) {
@@ -67,40 +69,113 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 			}
 		}
 
-		// TODO 验证从cache中判断后，是否还需要从logout url中获取；验证多租户tenant的退出是否有效且不影响其他tenant
+		/* 
+		 * TODO 验证从cache中判断后，是否还需要从logout url中获取；
+		 * 验证多租户tenant的退出是否有效且不影响其他tenant
+		 */
 		if (realm == null) {
 			realm = getRealmNameForLogout(path);
 		}
+		
+		// TODO 从keycloak.json获取
+		
 		if (realm == null) {
-			return new KeycloakDeployment();
+			//return new KeycloakDeployment();
+			realm = "master";
 		}
 
 		KeycloakDeployment deployment = this.cache.get(realm);
 
-		nowDeployment = deployment;
 		if (deployment == null) {
-			InputStream is = getClass().getResourceAsStream("/keycloak.json");
-			if (is == null) {
-				throw new IllegalStateException("Not able to find the file keycloak.json");
-			}
+			deployment = init(realm, request);
+		} else {
+			deployment = updateKeycloakDeployment(deployment, request);
+		}
+		
+		// 带有state和code参数时，表示tomcat后台与keycloak交互，auth-server-url使用keycloak.json
+		if(path.contains("state=") && path.contains("code=")) {
+			deployment = init(realm, null);
+		}
+		
+		this.cache.put(realm, deployment);
+		
+		nowDeployment = deployment;
+		return deployment;
+	}
+	
+	/**
+	 * 初始化KeycloakDeployment
+	 * 
+	 * @param realm
+	 * @param request 不为NULL时，处理auth-serve-url
+	 * @return
+	 */
+	private KeycloakDeployment init(String realm, Request request) {
 
-			try {
-				Reader reader = new InputStreamReader(is, "UTF-8");
-				Map map = (Map) new Gson().fromJson(reader, Map.class);
-				map.put("realm", realm);
-
-				String config = new Gson().toJson(map);
-				is = new StringBufferInputStream(config);
-			} catch (UnsupportedEncodingException e) {
-				e.printStackTrace();
-			}
-
-			deployment = KeycloakDeploymentBuilder.build(is);
-			this.cache.put(realm, deployment);
-			nowDeployment = deployment;
+		InputStream is = getClass().getResourceAsStream("/keycloak.json");
+		if (is == null) {
+			throw new IllegalStateException("Not able to find the file keycloak.json");
 		}
 
+		try {
+			Reader reader = new InputStreamReader(is, "UTF-8");
+			Map map = (Map) new Gson().fromJson(reader, Map.class);
+			map.put("realm", realm);
+
+			if (request != null) {
+				String authServerConf = (String) map.get("auth-server-url");
+				map.put("auth-server-url", processAuthServerUrl(authServerConf, request));
+			}
+
+			String config = new Gson().toJson(map);
+			is = new ByteArrayInputStream(config.getBytes("UTF-8"));
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+
+		KeycloakDeployment deployment = KeycloakDeploymentBuilder.build(is);
 		return deployment;
+	}
+	
+	private KeycloakDeployment updateKeycloakDeployment(KeycloakDeployment deployment,
+			Request request) {
+		KeycloakDeployment newDeployment = deployment;
+		String hostName = getServerFromRequest(request);
+		if (!deployment.getAuthServerBaseUrl().contains(hostName)) {
+			newDeployment = init(deployment.getRealm(), request);
+		}
+		return newDeployment;
+	}
+	
+	// get IP or hostname
+	private String getServerFromRequest(Request request) {
+		String hostHeader = request.getHeader("Host");
+		String hostName = null;
+
+		if (hostHeader != null) {
+			if (hostHeader.contains(":")) {
+				String[] hostSplit = hostHeader.split(":");
+				hostName = hostSplit[0];
+			} else {
+				hostName = hostHeader;
+			}
+		}
+		return hostName;
+	}
+	
+	private String processAuthServerUrl(String authServerConf, Request request) {
+		// 如果配置文件中Keycloak地址与用户访问地址不同，则可能为内外网环境，使用访问地址替换
+		String newAuthServerConf = authServerConf;
+		String hostName = getServerFromRequest(request);
+		if (authServerConf != null && !authServerConf.contains(hostName)) {
+
+			String reg = "\\/\\/([^\\/\\:]*)";
+			StringBuffer replacement = new StringBuffer();
+			replacement.append("//");
+			replacement.append(hostName);
+			newAuthServerConf = authServerConf.replaceFirst(reg, replacement.toString());
+		}
+		return newAuthServerConf;
 	}
 
 	private String getRealmNameForLogout(String url) {
@@ -118,5 +193,5 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		}
 		return realm;
 	}
-	
+
 }
