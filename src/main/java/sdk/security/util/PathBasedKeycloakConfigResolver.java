@@ -16,6 +16,7 @@ import org.keycloak.adapters.KeycloakDeployment;
 import org.keycloak.adapters.KeycloakDeploymentBuilder;
 import org.keycloak.adapters.spi.HttpFacade.Cookie;
 import org.keycloak.adapters.spi.HttpFacade.Request;
+import org.keycloak.constants.AdapterConstants;
 
 /**
  * Resolve configuration of Keycloak
@@ -57,7 +58,7 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		}
 		
 		// get realm from static variable named cache
-		if(realm == null && cache.get("master") != null) {
+		if(realm == null && cache.get("master") != null && cache.size() == 1) {
 			realm = "master";
 		}
 
@@ -92,8 +93,14 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 			deployment = updateKeycloakDeployment(deployment, request);
 		}
 		
-		// 带有state和code参数时，表示tomcat后台与keycloak交互，auth-server-url使用keycloak.json
-		if(path.contains("state=") && path.contains("code=")) {
+		/*
+		 * 以下情况auth-server-url使用keycloak.json
+		 * 1. 请求带有state和code参数时，应用后台(Tomcat)向keycloak发起code置换token的请求
+		 * 2. 请求以k_logout结尾，keycloak向应用后台发起注销请求，直到整个退出流程完成，都是后台在交互
+		 */
+		// 
+		if(path.contains("state=") && path.contains("code=") || 
+				path.endsWith(AdapterConstants.K_LOGOUT)) {
 			deployment = init(realm, null);
 		}
 		
@@ -122,7 +129,7 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 			Map map = (Map) new Gson().fromJson(reader, Map.class);
 			map.put("realm", realm);
 
-			if (request != null) {
+			if(isInExtNetwork() && request != null) {
 				String authServerConf = (String) map.get("auth-server-url");
 				map.put("auth-server-url", processAuthServerUrl(authServerConf, request));
 			}
@@ -137,12 +144,15 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		return deployment;
 	}
 	
+	// deployment中的IP与Request中不同时，更新deployment
 	private KeycloakDeployment updateKeycloakDeployment(KeycloakDeployment deployment,
 			Request request) {
 		KeycloakDeployment newDeployment = deployment;
-		String hostName = getServerFromRequest(request);
-		if (!deployment.getAuthServerBaseUrl().contains(hostName)) {
-			newDeployment = init(deployment.getRealm(), request);
+		if(isInExtNetwork()) {
+			String hostName = getServerFromRequest(request);
+			if (!deployment.getAuthServerBaseUrl().contains(hostName)) {
+				newDeployment = init(deployment.getRealm(), request);
+			}
 		}
 		return newDeployment;
 	}
@@ -176,6 +186,12 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 			newAuthServerConf = authServerConf.replaceFirst(reg, replacement.toString());
 		}
 		return newAuthServerConf;
+	}
+	
+	// 判断是否处理内外网
+	private boolean isInExtNetwork() {
+		String network = PropertiesUtil.getValue("conf.properties", "network.in-external");
+		return !"false".equals(network);
 	}
 
 	private String getRealmNameForLogout(String url) {
