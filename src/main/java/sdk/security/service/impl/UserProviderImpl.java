@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClientException;
 import sdk.security.service.IUserProvider;
 import sdk.security.util.KeycloakUtil;
 import sdk.security.util.RestRequestProvider;
+import sdk.security.util.RestRequestUtils;
 import sdk.security.util.SecurityProvider;
 
 /**
@@ -30,7 +31,7 @@ public class UserProviderImpl implements IUserProvider {
         Map<String, Object> params = new HashMap<String, Object>();
         params.put("username", userId);
         // KeyCloak默认按照用户名模糊查找，可能结果是多个，根据入参userName过滤
-        Map<String, String> result = null;
+        Map result = null;
         List<Map> users = null;
         try {
             users = queryUsers(params, realm);
@@ -47,9 +48,30 @@ public class UserProviderImpl implements IUserProvider {
             if(result!=null){
                 // 组装为通用的信息
                 Map<String, String> returnMap = new HashMap<String, String>();
-                returnMap.put("userId", result.get("username"));
-                returnMap.put("userName", result.get("firstName"));
-                returnMap.put("email", result.get("email"));
+                returnMap.put("userId", (String) result.get("username"));
+                returnMap.put("userName", (String) result.get("firstName"));
+                returnMap.put("email", (String) result.get("email"));
+                String password = getUserPassword(userId);
+				if (password != null && !"".equals(password)) {
+					returnMap.put("password", password);
+				}
+				
+				// Tenant Realm
+				Map attributes = (Map) result.get("attributes");
+				List tenantRealms = (List) attributes.get("tenantRealm");
+				if(tenantRealms != null && tenantRealms.size() > 0) {
+					String tenantRealm = (String) tenantRealms.get(0);
+					returnMap.put("tenantRealm", tenantRealm);
+				}
+				
+				// Master Realm admin
+				/*AccessToken accessToken = KeycloakUtil.getAccessToken();
+				if (accessToken != null) {
+					Set<String> roles = accessToken.getRealmAccess().getRoles();
+					if (roles != null && roles.contains("admin")) {
+						returnMap.put("masterAdmin", "true");
+					}
+				}*/
                 return returnMap;
             }
         }
@@ -94,4 +116,18 @@ public class UserProviderImpl implements IUserProvider {
     	return queryUsers(queryParams, tenantRealm);
     }
 
+    private String getUserPassword(String userId) {
+    	String userPwdEndpoint = "/indata-manage-portal/service/api/manage/tenants/realm/{realm}/user/{userId}/password";
+		
+		StringBuffer sr = new StringBuffer();
+		sr.append(new SecurityProviderImpl().getManagePortalServer());
+		sr.append(userPwdEndpoint);
+		
+		Map<String, String> uriVariables = new HashMap<String, String>();
+		uriVariables.put("realm", KeycloakUtil.getRealm());
+		uriVariables.put("userId", userId);
+		
+		String userPwd = RestRequestUtils.get(sr.toString(), String.class, uriVariables, null, null);
+		return userPwd;
+    }
 }

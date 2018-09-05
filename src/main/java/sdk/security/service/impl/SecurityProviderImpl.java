@@ -72,7 +72,7 @@ public class SecurityProviderImpl implements ISecurityProvider {
 	 * 
 	 * @return String http://127.0.0.1:9000
 	 */
-	private String getManagePortalServer() {
+	public String getManagePortalServer() {
 		StringBuffer sr = new StringBuffer();
 		
 		// HTTP

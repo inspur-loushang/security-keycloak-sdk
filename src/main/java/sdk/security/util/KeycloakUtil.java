@@ -11,6 +11,8 @@ import org.keycloak.KeycloakSecurityContext;
 import org.keycloak.adapters.RefreshableKeycloakSecurityContext;
 import org.keycloak.representations.AccessToken;
 
+import sdk.security.userinfo.UserProvider;
+
 public class KeycloakUtil {
 
 	private static final String logout = "/protocol/openid-connect/logout?redirect_uri=";
@@ -39,6 +41,7 @@ public class KeycloakUtil {
 	}
 	
 	public static String getTenantRealm() {
+		String tenantRealm = null;
 		// 获取当前Realm
 		String presentRealm = getRealm();
 		
@@ -48,18 +51,29 @@ public class KeycloakUtil {
 		 */
 		if("master".equalsIgnoreCase(presentRealm)) {
 			AccessToken accessToken = getAccessToken();
+			
+			/*
+			 * 超级管理员 可以设置为某个集群的管理员
+			 * 但原则上特别是Foundation上有多个集群时，集群的管理权限应该交给集群管理员，而不是超级管理员
+			 */
+			Set<String> roles = accessToken.getRealmAccess().getRoles();
+			if(roles != null && roles.contains("admin")) {
+				Map userInfo = UserProvider.getUserInfo(accessToken.getPreferredUsername());
+				tenantRealm = (String) userInfo.get("tenantRealm");
+				return tenantRealm;
+			}
+			
 			Map<String, AccessToken.Access> resourcAccesses = accessToken.getResourceAccess();
 			Set<String> clients = resourcAccesses.keySet();
 			for (String client : clients) {
-				if (client.endsWith("-realm") && !"master-realm".equalsIgnoreCase(client)) {
+				if (client.endsWith("-realm") && !"master-realm".equalsIgnoreCase(client)
+						&& !"templatetenant-realm".equalsIgnoreCase(client)) {
 					presentRealm = client.substring(0, client.indexOf("-realm"));
 					// 一个管理员仅对应一个Realm
 					break;
 				}
 			}
-			if("superadmin".equalsIgnoreCase(accessToken.getPreferredUsername())) {
-				// TODO 超级管理员
-			}
+			
 		}
 		
 		return presentRealm;		
