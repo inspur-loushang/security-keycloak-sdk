@@ -14,9 +14,26 @@ import javax.servlet.http.HttpSession;
 
 import sdk.security.authc.AuthenticationProvider;
 import sdk.security.util.HttpServletThreadLocal;
+import sdk.security.util.SecurityHttpServletRequestWrapper;
+import sdk.security.util.SecurityRefererValidator;
+import sdk.security.util.StringUtil;
 
 public class SDKFilter implements Filter {
+	private boolean securityRequestWrapper;
+	private boolean securityRefererValidator;
+	private String[] securityRequestWrapperExcludes = new String[] {};
 
+	public void init(FilterConfig filterConfig) throws ServletException {
+		securityRequestWrapper = 
+				"false".equals(filterConfig.getInitParameter("securityRequestWrapper"))? false: true;
+		securityRefererValidator = 
+				"false".equals(filterConfig.getInitParameter("securityRefererValidator"))? false: true;
+		String excludesParameter = filterConfig.getInitParameter("securityRequestWrapperExcludes");
+		if (!StringUtil.isEmptyString(excludesParameter)) {
+			securityRequestWrapperExcludes = excludesParameter.split(";");
+		}
+	}
+	
 	public void destroy() {
 	}
 
@@ -48,11 +65,34 @@ public class SDKFilter implements Filter {
 		}
 		session.setAttribute("userId", userId);
 		
+		
+		if(securityRequestWrapper && !isSecurityRequestWrapperExcludes(request)) {
+			request = new SecurityHttpServletRequestWrapper(request);
+		}
+		
+		if(securityRefererValidator) {
+			SecurityRefererValidator srv = new SecurityRefererValidator();
+			if(!srv.isTrustReferer(request)) {
+				response.setStatus(403);
+				return;
+			}
+		}
+
 		filterChain.doFilter(request, response);
 	}
 
-	public void init(FilterConfig filterConfig) throws ServletException {
-
+	private boolean isSecurityRequestWrapperExcludes(HttpServletRequest request) {
+		boolean result = false;
+		String requestUrl = request.getRequestURL().toString();
+		if (this.securityRequestWrapperExcludes.length != 0) {
+			for (String url : securityRequestWrapperExcludes) {
+				if (requestUrl.matches(url)) {
+					result = true;
+					break;
+				}
+			}
+		}
+		return result;
 	}
-
+	
 }
