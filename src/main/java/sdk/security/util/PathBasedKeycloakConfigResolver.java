@@ -1,7 +1,5 @@
 package sdk.security.util;
 
-import com.google.gson.Gson;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -9,6 +7,9 @@ import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.keycloak.adapters.KeycloakConfigResolver;
@@ -17,6 +18,8 @@ import org.keycloak.adapters.KeycloakDeploymentBuilder;
 import org.keycloak.adapters.spi.HttpFacade.Cookie;
 import org.keycloak.adapters.spi.HttpFacade.Request;
 import org.keycloak.constants.AdapterConstants;
+
+import com.google.gson.Gson;
 
 /**
  * Resolve configuration of Keycloak
@@ -34,6 +37,7 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 	
 	public KeycloakDeployment resolve(Request request) {
 		String realm = null;
+		KeycloakDeployment deployment = null;
 		String path = request.getURI();
 		
 		// get realm from request url
@@ -61,12 +65,23 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		if(realm == null && cache.get("master") != null && cache.size() == 1) {
 			realm = "master";
 		}
-
-		// get realm from cookie named mt
+		
+		// get realm from cookie that it's name is in keycloak.json
 		if (realm == null) {
-			Cookie mtCookie = request.getCookie("mt");
-			if (mtCookie != null) {
-				realm = mtCookie.getValue();
+			KeycloakDeployment deploymentConf = getFromKeycloakJson();
+			String realmConf = deploymentConf.getRealm();
+			
+			if (!StringUtil.isEmptyString(realmConf)) {
+				// realm like ${cookie.MY_COOKIE_VARIABLE}
+				Pattern pattern = Pattern.compile("\\$\\{cookie\\.(.*)\\}");
+				Matcher m = pattern.matcher(realmConf);
+				if(m.find()) {
+					String cookieName = m.group(1);
+					Cookie mtCookie = request.getCookie(cookieName);
+					if (mtCookie != null) {
+						realm = mtCookie.getValue();
+					}
+				}
 			}
 		}
 
@@ -78,14 +93,13 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 			realm = getRealmNameForLogout(path);
 		}
 		
-		// TODO 从keycloak.json获取
-		
 		if (realm == null) {
-			//return new KeycloakDeployment();
 			realm = "master";
 		}
 
-		KeycloakDeployment deployment = this.cache.get(realm);
+		if(deployment == null) {
+			deployment = this.cache.get(realm);
+		}
 
 		if (deployment == null) {
 			deployment = init(realm, request);
@@ -107,6 +121,27 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		this.cache.put(realm, deployment);
 		
 		nowDeployment = deployment;
+		return deployment;
+	}
+	
+	// get KeycloakDeployment from keycloak.json in app.war
+	private KeycloakDeployment getFromKeycloakJson() {
+
+		InputStream is = getClass().getResourceAsStream("/keycloak.json");
+		if (is == null) {
+			throw new IllegalStateException("Not able to find the file keycloak.json");
+		}
+
+		try {
+			Reader reader = new InputStreamReader(is, "UTF-8");
+			Map map = (Map) new Gson().fromJson(reader, Map.class);
+			String config = new Gson().toJson(map);
+			is = new ByteArrayInputStream(config.getBytes("UTF-8"));
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+
+		KeycloakDeployment deployment = KeycloakDeploymentBuilder.build(is);
 		return deployment;
 	}
 	
@@ -178,22 +213,38 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		String newAuthServerConf = authServerConf;
 		String hostName = getServerFromRequest(request);
 		if (authServerConf != null && !authServerConf.contains(hostName)) {
-
-			String reg = "\\/\\/([^\\/\\:]*)";
+			String reg = "";
 			StringBuffer replacement = new StringBuffer();
 			replacement.append("//");
 			replacement.append(hostName);
+
+			String port = getKeycloakPort();
+			if (StringUtil.isEmptyString(port)) {
+				reg = "\\/\\/([^\\/\\:]*)";
+			} else {
+				reg = "\\/\\/([^\\/\\/]*)";
+				if (!"80".equals(port)) {
+					replacement.append(":");
+					replacement.append(port);
+				}
+			}
 			newAuthServerConf = authServerConf.replaceFirst(reg, replacement.toString());
 		}
 		return newAuthServerConf;
 	}
 	
+	// TODO conf.properties不存在是的处理
 	// 判断是否处理内外网
 	private boolean isInExtNetwork() {
-		String network = PropertiesUtil.getValue("conf.properties", "network.in-external");
+		String network = PropertiesUtilEnhance.getValue("conf.properties", "network.in-external");
 		return !"false".equals(network);
 	}
-
+	
+	private String getKeycloakPort() {
+		String port = PropertiesUtilEnhance.getValue("conf.properties", "network.keycloak.port");
+		return port;
+	}
+	
 	private String getRealmNameForLogout(String url) {
 		String realm = null;
 		int index1 = url.lastIndexOf("k_logout");
@@ -209,5 +260,5 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		}
 		return realm;
 	}
-
+	
 }
