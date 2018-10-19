@@ -102,7 +102,7 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		}
 
 		if (deployment == null) {
-			deployment = init(realm, request);
+			deployment = init(realm, request, true);
 		} else {
 			deployment = updateKeycloakDeployment(deployment, request);
 		}
@@ -115,7 +115,7 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		// 
 		if(path.contains("state=") && path.contains("code=") || 
 				path.endsWith(AdapterConstants.K_LOGOUT)) {
-			deployment = init(realm, null);
+			deployment = init(realm, request, false);
 		}
 		
 		this.cache.put(realm, deployment);
@@ -152,7 +152,7 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 	 * @param request 不为NULL时，处理auth-serve-url
 	 * @return
 	 */
-	private KeycloakDeployment init(String realm, Request request) {
+	private KeycloakDeployment init(String realm, Request request, boolean checkNetwork) {
 
 		InputStream is = getClass().getResourceAsStream("/keycloak.json");
 		if (is == null) {
@@ -164,11 +164,18 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 			Map map = (Map) new Gson().fromJson(reader, Map.class);
 			map.put("realm", realm);
 
-			if(isInExtNetwork() && request != null) {
-				String authServerConf = (String) map.get("auth-server-url");
-				map.put("auth-server-url", processAuthServerUrl(authServerConf, request));
+			String authServerConf = (String) map.get("auth-server-url");
+			if(isInExtNetwork() && request != null && checkNetwork) {
+				authServerConf = processAuthServerUrl(authServerConf, request);
 			}
 
+			String scheme = getScheme(request);
+			System.out.println("scheme="+scheme);
+			if("https".equalsIgnoreCase(scheme) && authServerConf.toLowerCase().startsWith("http:")) {
+				authServerConf = authServerConf.replace("http:", "https:");
+			}
+			map.put("auth-server-url", authServerConf);
+			
 			String config = new Gson().toJson(map);
 			is = new ByteArrayInputStream(config.getBytes("UTF-8"));
 		} catch (UnsupportedEncodingException e) {
@@ -186,9 +193,20 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		if(isInExtNetwork()) {
 			String hostName = getServerFromRequest(request);
 			if (!deployment.getAuthServerBaseUrl().contains(hostName)) {
-				newDeployment = init(deployment.getRealm(), request);
+				newDeployment = init(deployment.getRealm(), request, true);
 			}
 		}
+		
+		String scheme = getScheme(request);
+		String authServerConf = newDeployment.getAuthServerBaseUrl();
+		if("https".equalsIgnoreCase(scheme) && authServerConf.toLowerCase().startsWith("http:")) {
+			newDeployment = init(deployment.getRealm(), request, true);
+		}
+		
+		if("http".equalsIgnoreCase(scheme) && authServerConf.toLowerCase().startsWith("https:")) {
+			newDeployment = init(deployment.getRealm(), request, true);
+		}
+		
 		return newDeployment;
 	}
 	
@@ -259,6 +277,13 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 			}
 		}
 		return realm;
+	}
+	
+	private String getScheme(Request request) {
+		//String scheme = request.getHeader("X-Forwarded-Proto");
+		String uri = request.getURI();
+		String scheme = uri.substring(0, uri.indexOf("://"));
+		return scheme;
 	}
 	
 }
