@@ -170,9 +170,9 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 			}
 
 			String scheme = getScheme(request);
-			System.out.println("scheme="+scheme);
 			if("https".equalsIgnoreCase(scheme) && authServerConf.toLowerCase().startsWith("http:")) {
 				authServerConf = authServerConf.replace("http:", "https:");
+				authServerConf = processHttpsAuthServerUrl(authServerConf);
 			}
 			map.put("auth-server-url", authServerConf);
 			
@@ -251,7 +251,6 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		return newAuthServerConf;
 	}
 	
-	// TODO conf.properties不存在是的处理
 	// 判断是否处理内外网
 	private boolean isInExtNetwork() {
 		String network = PropertiesUtilEnhance.getValue("conf.properties", "network.in-external");
@@ -284,6 +283,40 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		String uri = request.getURI();
 		String scheme = uri.substring(0, uri.indexOf("://"));
 		return scheme;
+	}
+	
+	private String getHttpsServerPort() {
+		String port = "29080";
+		String portConf = PropertiesUtilEnhance.getValue("conf.properties", "https.keycloak.port");
+		
+		if(!StringUtil.isEmptyString(portConf)) {
+			port = portConf;
+		}
+		return port;
+	}
+	
+	private String processHttpsAuthServerUrl(String authServerConf) {
+		String newAuthServerUrl = authServerConf;
+		
+		String[] parts = authServerConf.split("/");
+		if(parts != null && parts.length == 4) {
+			String ipAndPort = parts[2];
+			String ip = ipAndPort;
+			if(ipAndPort.contains(":")) {
+				ip = ipAndPort.split(":")[0];
+			}
+			StringBuffer sr = new StringBuffer();
+			sr.append(parts[0]);
+			sr.append("//");
+			sr.append(ip);
+			sr.append(":");
+			sr.append(getHttpsServerPort());
+			sr.append("/");
+			sr.append(parts[3]);
+			newAuthServerUrl = sr.toString();
+		}
+		
+		return newAuthServerUrl;
 	}
 	
 }
