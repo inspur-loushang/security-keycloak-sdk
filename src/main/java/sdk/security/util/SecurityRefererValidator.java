@@ -4,6 +4,8 @@ import java.text.MessageFormat;
 
 import javax.servlet.http.HttpServletRequest;
 
+import sdk.security.authc.AuthenticationProvider;
+
 public class SecurityRefererValidator {
 
 	private String[] getTrustReferers() {
@@ -35,14 +37,25 @@ public class SecurityRefererValidator {
 		
 		// 未配置可信referer，则不校验
 		if(trustReferers.length == 0) {
+			trustReferers = new String[2];
 			String requestURL = request.getRequestURL().toString();
-			String ip = getIPFromRequestUrl(requestURL);
-			if(StringUtil.isEmptyString(ip)) {
+			String requestIp = getIPFromRequestUrl(requestURL);
+			if(StringUtil.isEmptyString(requestIp)) {
 				return true;
 			} else {
-				trustReferers = new String[1];
-				trustReferers[0] = ip;
-				System.out.println(MessageFormat.format("no conf referer, get from requesturl {0}", ip));
+				trustReferers[0] = requestIp;
+			}
+			
+			// keycloak地址
+			String token = AuthenticationProvider.getToken();
+			if(token != null) {
+				String authServerUrl = SecurityProvider.getSecurityContextUrl();
+				String authServerIp = getIPFromRequestUrl(authServerUrl);
+				if(StringUtil.isEmptyString(authServerIp)) {
+					return true;
+				} else {
+					trustReferers[1] = authServerIp;
+				}
 			}
 		}
 
