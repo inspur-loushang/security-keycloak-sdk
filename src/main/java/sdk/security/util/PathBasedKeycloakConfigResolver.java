@@ -81,6 +81,8 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 					if (mtCookie != null) {
 						realm = mtCookie.getValue();
 					}
+				} else {
+					realm = realmConf;
 				}
 			}
 		}
@@ -254,7 +256,7 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 	// 判断是否处理内外网
 	private boolean isInExtNetwork() {
 		String network = PropertiesUtilEnhance.getValue("conf.properties", "network.in-external");
-		return !"false".equals(network);
+		return "true".equals(network);
 	}
 	
 	private String getKeycloakPort() {
