@@ -19,8 +19,8 @@ public class PropertiesUtilEnhance {
 	}
 
 	private static boolean isFileExist(String filename) {
-		String path = PropertiesUtilEnhance.class.getClassLoader().getResource(filename).getPath();
-		File f = new File(path);
+		String path = PropertiesUtilEnhance.class.getClassLoader().getResource("/").getPath();
+		File f = new File(path+filename);
 		boolean exist = f.exists();
 		return exist;
 	}
