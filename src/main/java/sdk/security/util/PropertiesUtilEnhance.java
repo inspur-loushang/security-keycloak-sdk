@@ -35,7 +35,7 @@ public class PropertiesUtilEnhance {
 	}
 
 	public static String getValue(String filename, String key, String defaultValue) {
-		String value = null;
+		String value = defaultValue;
 		String filenameProcessed = prePrecessFileName(filename);
 		if (isFileExist(filenameProcessed)) {
 			value = PropertiesUtil.getValue(filenameProcessed, key, defaultValue);

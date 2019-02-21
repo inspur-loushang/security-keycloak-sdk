@@ -27,6 +27,13 @@ public class SecurityRefererValidator {
 				url = url.split(":")[0];
 			}
 		}
+		if (url.startsWith("http&#58;//") || url.startsWith("https&#58;//")) {
+			url = url.substring(url.indexOf("&#58;//") + 7);
+			url = url.substring(0, url.indexOf("/"));
+			if (url.contains("&#58;")) {
+				url = url.split("&#58;")[0];
+			}
+		}
 		ip = url;
 		return ip;
 	}

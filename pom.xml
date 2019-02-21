@@ -4,7 +4,7 @@
 
 	<groupId>com.inspur.security</groupId>
 	<artifactId>security-keycloak-sdk</artifactId>
-	<version>1.1.0</version>
+	<version>1.2.0</version>
 	<packaging>jar</packaging>
 
 	<properties>
@@ -12,7 +12,9 @@
 		<maven.compiler.target>1.6</maven.compiler.target>
 		<maven.compiler.source>1.6</maven.compiler.source>
 		<keycloak.version>3.4.0.Final</keycloak.version>
-		<security-sd.versionk>1.0.0</security-sd.versionk>
+		<security-sd.versionk>1.2.0</security-sd.versionk>
+		<bsp.version>7.5.0</bsp.version>
+		<bsp.edition>full</bsp.edition>
 	</properties>
 
 	<dependencies>
@@ -83,34 +85,51 @@
 			<artifactId>spring-web</artifactId>
 			<version>4.3.6.RELEASE</version>
 		</dependency>
+
+		<dependency>
+			<groupId>org.loushang.bsp</groupId>
+			<artifactId>bsp</artifactId>
+			<version>${bsp.version}</version>
+			<classifier>${bsp.edition}</classifier>
+			<scope>provided</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.loushang.bsp</groupId>
+			<artifactId>bsp-client</artifactId>
+			<version>${bsp.version}</version>
+			<classifier>${bsp.edition}</classifier>
+			<scope>provided</scope>
+		</dependency>
+		
 	</dependencies>
 
 	<!-- 配置私服使用信息 -->
 	<repositories>
 		<repository>
-			<id>nexus-jar</id>
-			<name>Team Nexus jar Repository</name>
-			<url>http://10.110.13.14:8081/nexus/content/groups/inspur-loushang/</url>
-		</repository>
+          <id>nexus-jar</id>
+          <name>Team Nexus jar Repository</name>
+          <url>http://maven.inspur.com/repository/maven-public/</url>
+        </repository>
 	</repositories>
 	<pluginRepositories>
 		<pluginRepository>
 			<id>nexus-plugin</id>
 			<name>Team Nexus plugin Repository</name>
-			<url>http://10.110.13.14:8081/nexus/content/groups/inspur-loushang/</url>
+			<url>http://maven.inspur.com/repository/maven-public/</url>
 		</pluginRepository>
 	</pluginRepositories>
 	<distributionManagement>
 		<snapshotRepository>
 			<id>snapshots</id>
 			<name>Porject Snapshot</name>
-			<url>http://10.110.13.14:8081/nexus/content/repositories/snapshots/</url>
+			<url>http://10.111.25.60:8081/nexus/content/repositories/snapshots/</url>
 			<uniqueVersion>true</uniqueVersion>
 		</snapshotRepository>
 		<repository>
 			<id>releases</id>
 			<name>Porject Release</name>
-			<url>http://10.110.13.14:8081/nexus/content/repositories/releases/</url>
+			<url>http://10.111.25.60:8081/nexus/content/repositories/releases/</url>
 		</repository>
 	</distributionManagement>
 </project>
