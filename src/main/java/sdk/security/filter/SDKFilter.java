@@ -1,6 +1,7 @@
 package sdk.security.filter;
 
 import java.io.IOException;
+import java.util.Map;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -13,7 +14,9 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import sdk.security.authc.AuthenticationProvider;
+import sdk.security.util.ClusterInfoUtil;
 import sdk.security.util.HttpServletThreadLocal;
+import sdk.security.util.SecurityConstant;
 import sdk.security.util.SecurityHttpServletRequestWrapper;
 import sdk.security.util.SecurityRefererValidator;
 import sdk.security.util.StringUtil;
@@ -65,6 +68,7 @@ public class SDKFilter implements Filter {
 		}
 		session.setAttribute("userId", userId);
 		
+		setSessionClusterInfo(request);
 		
 		if(securityRequestWrapper && !isSecurityRequestWrapperExcludes(request)) {
 			request = new SecurityHttpServletRequestWrapper(request);
@@ -93,6 +97,25 @@ public class SDKFilter implements Filter {
 			}
 		}
 		return result;
+	}
+	
+	// 用户当前操作的集群写入会话
+	private void setSessionClusterInfo(HttpServletRequest request) {
+		String cluster = (String) HttpServletThreadLocal
+				.getSecurityContext(SecurityConstant.CLUSTER_ID_SESSION_KEY);
+		if(cluster == null) {
+			return;
+		}
+		
+		Map<String, String> sessionClusterInfo = (Map<String, String>) AuthenticationProvider
+				.getCustomSessionInfo(SecurityConstant.CLUSTER_ID_SESSION_KEY);
+		if (sessionClusterInfo != null && cluster.equals(sessionClusterInfo.get("clusterId")) ) {
+			return;
+		}
+		
+		Map<String, String> clusterInfo = ClusterInfoUtil.getClusterInfoByClusterId(cluster);
+		AuthenticationProvider.setCustomSessionInfo(SecurityConstant.CLUSTER_ID_SESSION_KEY,
+				clusterInfo);
 	}
 	
 }

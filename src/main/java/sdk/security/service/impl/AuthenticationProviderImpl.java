@@ -3,10 +3,14 @@ package sdk.security.service.impl;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
 import org.keycloak.KeycloakSecurityContext;
 import org.keycloak.representations.AccessToken;
 
 import sdk.security.service.IAuthenticationProvider;
+import sdk.security.util.HttpServletThreadLocal;
 import sdk.security.util.KeycloakUtil;
 
 /**
@@ -81,5 +85,23 @@ public class AuthenticationProviderImpl implements IAuthenticationProvider {
 		} catch (Exception e) {
 			return null;
 		}
+	}
+	
+	public void setCustomSessionInfo(String key, Object value) {
+		HttpServletRequest request = HttpServletThreadLocal.getRequest();
+		if (request == null) {
+			return;
+		}
+		HttpSession session = request.getSession(true);
+		session.setAttribute(key, value);
+	}
+	
+	public Object getCustomSessionInfo(String key) {
+		HttpServletRequest request = HttpServletThreadLocal.getRequest();
+		if (request == null) {
+			return null;
+		}
+		HttpSession session = request.getSession(true);
+		return session.getAttribute(key);
 	}
 }

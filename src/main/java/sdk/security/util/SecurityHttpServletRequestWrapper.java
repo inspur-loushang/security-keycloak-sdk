@@ -104,7 +104,7 @@ public class SecurityHttpServletRequestWrapper extends HttpServletRequestWrapper
 		str = str.replaceAll("\\+", "&#x2b;");
 		
 		if(!paramString.equals(str)) {
-			System.out.println(MessageFormat.format("value {0}, after xss clean {1}", paramString, str));
+			//System.out.println(MessageFormat.format("value {0}, after xss clean {1}", paramString, str));
 		}
 		return str;
 	}

@@ -1,7 +1,12 @@
 package sdk.security.util;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -10,13 +15,19 @@ import javax.servlet.http.HttpServletRequest;
 import org.keycloak.KeycloakSecurityContext;
 import org.keycloak.adapters.RefreshableKeycloakSecurityContext;
 import org.keycloak.representations.AccessToken;
+import org.springframework.http.HttpEntity;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+
+import com.google.gson.Gson;
 
 import sdk.security.userinfo.UserProvider;
 
 public class KeycloakUtil {
 
 	private static final String logout = "/protocol/openid-connect/logout?redirect_uri=";
-
+	private static final String AUTH_TOKEN = "/realms/{realm}/protocol/openid-connect/token";
+	
 	public static KeycloakSecurityContext getKeycloakSecurityContext() {
 		HttpServletRequest request = HttpServletThreadLocal.getRequest();
 		RefreshableKeycloakSecurityContext context = (RefreshableKeycloakSecurityContext) request
@@ -128,5 +139,62 @@ public class KeycloakUtil {
 
 		}
 		return logoutUrl;
+	}
+	
+	
+	public static Map auth(String userId, String password, String clientId, String realm) {
+		Map<String, String> uriVariables = new HashMap<String, String>();
+		MultiValueMap<String, String> bodyVariables = new LinkedMultiValueMap<String, String>();
+		bodyVariables.add("username", userId);
+		bodyVariables.add("password", password);
+		bodyVariables.add("grant_type", "password");
+		bodyVariables.add("scope", "openid profile");
+		bodyVariables.add("client_id", clientId);
+		
+		uriVariables.put("realm", realm);
+		
+		Map keycloakInfo = readKeycloakJsonFile();
+		String keycloakAuthUrl = (String) keycloakInfo.get("auth-server-url");
+		StringBuffer sr = new StringBuffer();
+		if(keycloakAuthUrl!=null) {
+			sr.append(keycloakAuthUrl);
+		}
+		sr.append(AUTH_TOKEN);
+
+		HttpEntity<Map> response = RestRequestUtils.post(sr.toString(), Map.class, uriVariables, bodyVariables);
+		return response.getBody();
+	}
+	
+	/**
+	 * 使用codeadmin用户重新生成access_token，
+	 * 将新增的realm的权限加入到access_token中，只有这样才有权限创建realm管理员
+	 * 
+	 * @return
+	 */
+	public static String impersonate() {
+		try {
+			Map map = auth("codeadmin",
+					"6ImNvZGUiLCJjb2RlX2NoYWxsZW5nZV9tZXRob2Q", "indata-manage-portal", "master");
+			return (String) map.get("access_token");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+	
+	private static Map readKeycloakJsonFile() {
+		Map map = new HashMap();
+		InputStream is = KeycloakUtil.class.getClassLoader().getResourceAsStream("/keycloak.json");
+		if (is == null) {
+			throw new IllegalStateException("Not able to find the file keycloak.json");
+		}
+
+		try {
+			Reader reader = new InputStreamReader(is, "UTF-8");
+			map = (Map) new Gson().fromJson(reader, Map.class);
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+		return map;
 	}
 }
