@@ -113,6 +113,10 @@ public class SDKFilter implements Filter {
 			return;
 		}
 		
+		if(StringUtil.isEmptyString(cluster)) {
+			return;
+		}
+		
 		Map<String, String> clusterInfo = ClusterInfoUtil.getClusterInfoByClusterId(cluster);
 		AuthenticationProvider.setCustomSessionInfo(SecurityConstant.CLUSTER_ID_SESSION_KEY,
 				clusterInfo);

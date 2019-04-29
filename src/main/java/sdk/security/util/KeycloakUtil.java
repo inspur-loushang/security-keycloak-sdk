@@ -30,25 +30,44 @@ public class KeycloakUtil {
 	
 	public static KeycloakSecurityContext getKeycloakSecurityContext() {
 		HttpServletRequest request = HttpServletThreadLocal.getRequest();
+		if(request == null) {
+			return null;
+		}
 		RefreshableKeycloakSecurityContext context = (RefreshableKeycloakSecurityContext) request
 				.getAttribute(KeycloakSecurityContext.class.getName());
 		return context;
 	}
 
 	public static AccessToken getAccessToken() {
-		return getKeycloakSecurityContext().getToken();
+		KeycloakSecurityContext sc = getKeycloakSecurityContext();
+		if(sc == null) {
+			return null;
+		}
+		return sc.getToken();
 	}
 
 	public static String getAccessTokenString() {
-		return getKeycloakSecurityContext().getTokenString();
+		KeycloakSecurityContext sc = getKeycloakSecurityContext();
+		if(sc == null) {
+			return null;
+		}
+		return sc.getTokenString();
 	}
 
 	public static String getIDTokenString() {
-		return getKeycloakSecurityContext().getIdTokenString();
+		KeycloakSecurityContext sc = getKeycloakSecurityContext();
+		if(sc == null) {
+			return null;
+		}
+		return sc.getIdTokenString();
 	}
 	
 	public static String getRealm() {
-		return getKeycloakSecurityContext().getRealm();
+		KeycloakSecurityContext sc = getKeycloakSecurityContext();
+		if(sc == null) {
+			return null;
+		}
+		return sc.getRealm();
 	}
 	
 	public static String getTenantRealm() {
@@ -93,6 +112,10 @@ public class KeycloakUtil {
 	public static String getSecurityContextUrl() {
 		String authServerUrl = "";
 		AccessToken token = getAccessToken();
+		if(token == null) {
+			return null;
+		}
+		
 		String issuer = token.getIssuer();
 		try {
 			URL url = new URL(issuer);
@@ -111,8 +134,13 @@ public class KeycloakUtil {
 	 */
 	public static String getLogoutUrl(String backUrl) {
 		String logoutUrl = "";
+		AccessToken accessToken = getAccessToken();
+		if(accessToken == null) {
+			return null;
+		}
+		
 		if (!"".equals(backUrl) && backUrl != null) {
-			logoutUrl = getAccessToken().getIssuer() + logout;
+			logoutUrl = accessToken.getIssuer() + logout;
 			if (backUrl.startsWith("http") || backUrl.startsWith("https")) {
 				logoutUrl += backUrl;
 			} else {
@@ -196,5 +224,11 @@ public class KeycloakUtil {
 			e.printStackTrace();
 		}
 		return map;
+	}
+	
+	public static String getAuthServerUrl() {
+		Map keycloakInfo = readKeycloakJsonFile();
+		String keycloakAuthUrl = (String) keycloakInfo.get("auth-server-url");
+		return keycloakAuthUrl;
 	}
 }

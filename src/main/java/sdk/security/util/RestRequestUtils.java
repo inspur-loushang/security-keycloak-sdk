@@ -6,9 +6,7 @@ import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.keycloak.KeycloakSecurityContext;
 import org.keycloak.adapters.KeycloakDeployment;
-import org.keycloak.adapters.RefreshableKeycloakSecurityContext;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -17,10 +15,8 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import sdk.security.util.PathBasedKeycloakConfigResolver;
-
 /**
- * REST API安全调用
+ * RESTful API调用
  * 
  * @author Data Security Group
  *
