@@ -11,9 +11,11 @@ import sdk.security.service.impl.SecurityProviderImpl;
 
 public class ClusterInfoUtil {
 	
-	private static final String allClusterEndpoint = "/manage-cluster/service/indata/cluster/instances";
-	private static final String clusterEndpoint =
+	private static final String ALL_CLUSTERE_NDPOINT = "/manage-cluster/service/indata/cluster/instances";
+	private static final String CLUSTER_ENDPOINT =
 			"/manage-cluster/service/indata/cluster/getInstanceByClusterName";
+	private static final String REALM_CLUSTERS_ENDPOINT =
+			"/manage-cluster/service/indata/cluster/clusterInfos/{realm}";
 	
 	/**
 	 * get cluster info
@@ -25,7 +27,7 @@ public class ClusterInfoUtil {
 		
 		StringBuffer sr = new StringBuffer();
 		sr.append(new SecurityProviderImpl().getManagePortalServer());
-		sr.append(clusterEndpoint);
+		sr.append(CLUSTER_ENDPOINT);
 		sr.append("/{clusterId}");
 		
 		Map<String, String> uriVariables = new HashMap<String, String>();
@@ -39,7 +41,7 @@ public class ClusterInfoUtil {
 	public static List getAllClusters() {
 		StringBuffer sr = new StringBuffer();
 		sr.append(new SecurityProviderImpl().getManagePortalServer());
-		sr.append(allClusterEndpoint);
+		sr.append(ALL_CLUSTERE_NDPOINT);
 		
 		MultiValueMap<String, String> bodyVariables = new LinkedMultiValueMap<String, String>();
 		bodyVariables.add("token", KeycloakUtil.impersonate());
@@ -55,8 +57,22 @@ public class ClusterInfoUtil {
 		return clusters;
 	}
 	
+	public static List getRealmClusters(String realm) {
+		StringBuffer sr = new StringBuffer();
+		sr.append(new SecurityProviderImpl().getManagePortalServer());
+		sr.append(REALM_CLUSTERS_ENDPOINT);
+		
+		Map<String, String> uriVariables = new HashMap<String, String>();
+		uriVariables.put("realm", realm);
+		
+		List clusters = 
+				RestRequestUtils.get(sr.toString(), List.class, uriVariables, null, null);
+		return clusters;
+	}
+	
 	public static boolean isClusterQueryUrl(String requestUrl) {
-		return (requestUrl.indexOf(allClusterEndpoint) > 0 || requestUrl.indexOf(clusterEndpoint) > 0);
+		return (requestUrl.indexOf(ALL_CLUSTERE_NDPOINT) > 0 || requestUrl.indexOf(CLUSTER_ENDPOINT) > 0
+				|| requestUrl.indexOf(REALM_CLUSTERS_ENDPOINT) > 0);
 	}
 
 }

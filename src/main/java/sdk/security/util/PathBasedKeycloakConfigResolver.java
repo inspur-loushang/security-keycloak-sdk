@@ -6,7 +6,6 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.text.MessageFormat;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -24,13 +23,8 @@ import org.keycloak.adapters.KeycloakDeploymentBuilder;
 import org.keycloak.adapters.spi.HttpFacade.Cookie;
 import org.keycloak.adapters.spi.HttpFacade.Request;
 import org.keycloak.constants.AdapterConstants;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 
 import com.google.gson.Gson;
-
-import sdk.security.authc.AuthenticationProvider;
-import sdk.security.service.impl.SecurityProviderImpl;
 
 /**
  * Resolve configuration of Keycloak
@@ -66,8 +60,7 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		
 		// get realm from cookie that it's name is in keycloak.json
 		if (realm == null) {
-			KeycloakDeployment deploymentConf = getFromKeycloakJson();
-			String realmConf = deploymentConf.getRealm();
+			String realmConf = getRealmFromKeycloakJson();
 			
 			if (!StringUtil.isEmptyString(realmConf)) {
 				// realm like ${cookie.MY_COOKIE_VARIABLE}
@@ -92,14 +85,19 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 			}
 		}
 
-		// get all cluster, get realm if have only one realm
-		if(realm == null && !ClusterInfoUtil.isClusterQueryUrl(path)) {
-			List clusters = ClusterInfoUtil.getAllClusters();
+		// get all clusters of platform, or get all clusters of one realm, and get realm if have only one realm
+		if(cluster == null && !ClusterInfoUtil.isClusterQueryUrl(path)) {
+			List allClusters = null; 
+			if(realm == null) {
+				allClusters = ClusterInfoUtil.getAllClusters();
+			} else {
+				allClusters = ClusterInfoUtil.getRealmClusters(realm);
+			}
 			Set<String> set = new HashSet<String>();
 			
-			if(clusters!=null && clusters.size()>0) {
-				for(int i=0, length=clusters.size(); i<length; i++) {
-					Map m = (Map) clusters.get(i);
+			if(allClusters!=null && allClusters.size()>0) {
+				for(int i=0, length=allClusters.size(); i<length; i++) {
+					Map m = (Map) allClusters.get(i);
 					String r = (String) m.get("realm");
 					if(r!=null) {
 						set.add(r);
@@ -111,7 +109,7 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 				}
 			}
 			
-			if(set.size() == 1) {
+			if(realm == null && set.size() == 1) {
 				Iterator<String> iterator = set.iterator();
 				realm = iterator.next();
 				
@@ -200,6 +198,25 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		return value;
 	}
 	
+	// get realm from keycloak.json in app.war
+	private String getRealmFromKeycloakJson() {
+		String realm = null;
+		InputStream is = getClass().getResourceAsStream("/keycloak.json");
+		if (is == null) {
+			throw new IllegalStateException("Not able to find the file keycloak.json");
+		}
+
+			try {
+				Reader reader = new InputStreamReader(is, "UTF-8");
+				Map map = (Map) new Gson().fromJson(reader, Map.class);
+				realm = (String) map.get("realm");
+			} catch (UnsupportedEncodingException e) {
+				e.printStackTrace();
+			}
+
+		return realm;
+	}
+	
 	// get KeycloakDeployment from keycloak.json in app.war
 	private KeycloakDeployment getFromKeycloakJson() {
 
@@ -259,6 +276,7 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		}
 
 		KeycloakDeployment deployment = KeycloakDeploymentBuilder.build(is);
+		
 		return deployment;
 	}
 	

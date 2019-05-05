@@ -1,11 +1,17 @@
 package sdk.security.service.impl;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import org.keycloak.AuthorizationContext;
+import org.keycloak.KeycloakSecurityContext;
 import org.keycloak.representations.AccessToken;
+import org.keycloak.representations.idm.authorization.Permission;
 
 import sdk.security.service.IAuthorizationProvider;
 import sdk.security.util.KeycloakUtil;
@@ -95,5 +101,37 @@ public class AuthorizationProviderImpl implements IAuthorizationProvider {
 			}
 		} 
 		return list;
+	}
+	
+	public List<Map> getPermissions() {
+		List<Map> result = new ArrayList<Map>();
+		KeycloakSecurityContext keycloakSecurityContext = KeycloakUtil.getKeycloakSecurityContext();
+	    AuthorizationContext authzContext = keycloakSecurityContext.getAuthorizationContext();
+	    List<Permission> permissions = authzContext.getPermissions();
+	    if(permissions != null && permissions.size()>0) {
+	    	for(int i=0,length=permissions.size(); i<length; i++) {
+	    		Map m = new HashMap();
+	    		Permission p = permissions.get(i);
+	    		m.put("resourceSetId", p.getResourceSetId());
+	    		m.put("resourceSetName", p.getResourceSetName());
+	    		m.put("scopes", p.getScopes());
+	    		result.add(m);
+	    	}
+	    }
+	    return result;
+	}
+	
+	public Set<String> getPermissionResourceNames() {
+		Set<String> resourceNames = new HashSet<String>();
+		KeycloakSecurityContext keycloakSecurityContext = KeycloakUtil.getKeycloakSecurityContext();
+	    AuthorizationContext authzContext = keycloakSecurityContext.getAuthorizationContext();
+	    List<Permission> permissions = authzContext.getPermissions();
+	    if(permissions != null && permissions.size()>0) {
+	    	for(int i=0,length=permissions.size(); i<length; i++) {
+	    		Permission p = permissions.get(i);
+	    		resourceNames.add(p.getResourceSetName());
+	    	}
+	    }
+	    return resourceNames;
 	}
 }
