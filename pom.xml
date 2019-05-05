@@ -4,7 +4,7 @@
 
 	<groupId>com.inspur.security</groupId>
 	<artifactId>security-keycloak-sdk</artifactId>
-	<version>1.2.0</version>
+	<version>1.3.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<properties>
@@ -12,7 +12,7 @@
 		<maven.compiler.target>1.6</maven.compiler.target>
 		<maven.compiler.source>1.6</maven.compiler.source>
 		<keycloak.version>3.4.0.Final</keycloak.version>
-		<security-sd.versionk>1.2.0</security-sd.versionk>
+		<security-sd.versionk>1.3.1-SNAPSHOT</security-sd.versionk>
 		<bsp.version>7.5.0</bsp.version>
 		<bsp.edition>full</bsp.edition>
 	</properties>

@@ -5,7 +5,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
+import java.text.MessageFormat;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,45 +36,31 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 	private Log logger = LogFactory.getLog(PathBasedKeycloakConfigResolver.class);
 
 	private final Map<String, KeycloakDeployment> cache = new ConcurrentHashMap();
-
+	
 	@Deprecated	
 	public static KeycloakDeployment nowDeployment = null;
 	
 	public KeycloakDeployment resolve(Request request) {
 		String realm = null;
+		String cluster = null;
 		KeycloakDeployment deployment = null;
 		String path = request.getURI();
 		
-		// get realm from request url
-		int multitenantIndex = path.indexOf("?realm=");
-		if (multitenantIndex > -1) {
-			realm = path.substring(multitenantIndex).split("=")[1];
-			if (realm.contains("&")) {
-				realm = realm.split("&")[0];
-			}
-		}
+		// get realm from request
+		realm = getValueFromRequestUrlAndReferer("realm", request);
 		
-		// get realm from request Referer Header
-		if(realm == null) {
-			String referer = request.getHeader("Referer");
-			if(referer!=null && referer.contains("?realm=")) {
-				int refererMultitenantIndex = referer.indexOf("?realm=");
-				realm = referer.substring(refererMultitenantIndex).split("=")[1];
-				if (realm.contains("&")) {
-					realm = realm.split("&")[0];
-				}
-			}
-		}
+		// get cluster from request
+		cluster = getValueFromRequestUrlAndReferer("cluster", request);
 		
-		// get realm from static variable named cache
-		if(realm == null && cache.get("master") != null && cache.size() == 1) {
-			realm = "master";
+		// get cluster from cookie
+		Cookie clusterCookie = request.getCookie(SecurityConstant.CLUSTER_ID_COOKIE_NAME);
+		if (cluster == null && clusterCookie != null) {
+			cluster = clusterCookie.getValue();
 		}
 		
 		// get realm from cookie that it's name is in keycloak.json
 		if (realm == null) {
-			KeycloakDeployment deploymentConf = getFromKeycloakJson();
-			String realmConf = deploymentConf.getRealm();
+			String realmConf = getRealmFromKeycloakJson();
 			
 			if (!StringUtil.isEmptyString(realmConf)) {
 				// realm like ${cookie.MY_COOKIE_VARIABLE}
@@ -87,6 +78,54 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 			}
 		}
 
+		if(realm == null && cluster != null && !ClusterInfoUtil.isClusterQueryUrl(path)) {
+			Map<String, String> clusterInfo = ClusterInfoUtil.getClusterInfoByClusterId(cluster);
+			if (clusterInfo != null) {
+				realm = clusterInfo.get("realm");
+			}
+		}
+
+		// get all clusters of platform, or get all clusters of one realm, and get realm if have only one realm
+		if(cluster == null && !ClusterInfoUtil.isClusterQueryUrl(path)) {
+			List allClusters = null; 
+			if(realm == null) {
+				allClusters = ClusterInfoUtil.getAllClusters();
+			} else {
+				allClusters = ClusterInfoUtil.getRealmClusters(realm);
+			}
+			Set<String> set = new HashSet<String>();
+			
+			if(allClusters!=null && allClusters.size()>0) {
+				for(int i=0, length=allClusters.size(); i<length; i++) {
+					Map m = (Map) allClusters.get(i);
+					String r = (String) m.get("realm");
+					if(r!=null) {
+						set.add(r);
+					}
+					// 获取第一个集群
+					if(cluster == null) {
+						cluster = (String) m.get("clusterId");
+					}
+				}
+			}
+			
+			if(realm == null && set.size() == 1) {
+				Iterator<String> iterator = set.iterator();
+				realm = iterator.next();
+				
+			}
+		}
+		
+		// 先将cluster和realm写入线程变量，SDKFilter中将cluster detail写入会话
+		if (cluster != null) {
+			HttpServletThreadLocal.setSecurityContext(SecurityConstant.CLUSTER_ID_SESSION_KEY, cluster);
+		}
+		 
+		// get realm from static variable named cache
+		if(realm == null && cache.get("master") != null && cache.size() == 1) {
+			realm = "master";
+		}
+		
 		/* 
 		 * TODO 验证从cache中判断后，是否还需要从logout url中获取；
 		 * 验证多租户tenant的退出是否有效且不影响其他tenant
@@ -124,6 +163,58 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		
 		nowDeployment = deployment;
 		return deployment;
+	}
+	
+	private String getValueFromRequestUrlAndReferer(String key, Request request) {
+		/* 
+		 * e.g. ?realm=
+		 * e.g. ?cluster=
+		*/
+		String param = MessageFormat.format("?{0}=", key);
+		String path = request.getURI();
+		String value = null;
+		
+		// get realm/cluster from request url
+		int multitenantIndex = path.indexOf(param);
+		if (multitenantIndex > -1) {
+			value = path.substring(multitenantIndex).split("=")[1];
+			if (value.contains("&")) {
+				value = value.split("&")[0];
+			}
+		}
+		
+		// get realm/cluster from request Referer Header
+		if(value == null) {
+			String referer = request.getHeader("Referer");
+			if(referer!=null && referer.contains(param)) {
+				int refererMultitenantIndex = referer.indexOf(param);
+				value = referer.substring(refererMultitenantIndex).split("=")[1];
+				if (value.contains("&")) {
+					value = value.split("&")[0];
+				}
+			}
+		}
+		
+		return value;
+	}
+	
+	// get realm from keycloak.json in app.war
+	private String getRealmFromKeycloakJson() {
+		String realm = null;
+		InputStream is = getClass().getResourceAsStream("/keycloak.json");
+		if (is == null) {
+			throw new IllegalStateException("Not able to find the file keycloak.json");
+		}
+
+			try {
+				Reader reader = new InputStreamReader(is, "UTF-8");
+				Map map = (Map) new Gson().fromJson(reader, Map.class);
+				realm = (String) map.get("realm");
+			} catch (UnsupportedEncodingException e) {
+				e.printStackTrace();
+			}
+
+		return realm;
 	}
 	
 	// get KeycloakDeployment from keycloak.json in app.war
@@ -185,6 +276,7 @@ public class PathBasedKeycloakConfigResolver implements KeycloakConfigResolver {
 		}
 
 		KeycloakDeployment deployment = KeycloakDeploymentBuilder.build(is);
+		
 		return deployment;
 	}
 	

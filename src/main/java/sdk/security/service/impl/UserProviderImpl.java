@@ -27,7 +27,12 @@ public class UserProviderImpl implements IUserProvider {
      *          email[邮箱]
      */
     public Map<String, String> getUserInfo(String userId) throws RestClientException{
-        String realm = KeycloakUtil.getRealm();
+    	String realm = KeycloakUtil.getRealm();
+    	return getUserInfo(userId, realm);
+    }
+    
+    public Map<String, String> getUserInfo(String userId, String realm) {
+        
         Map<String, Object> params = new HashMap<String, Object>();
         params.put("username", userId);
         // KeyCloak默认按照用户名模糊查找，可能结果是多个，根据入参userName过滤
@@ -51,7 +56,7 @@ public class UserProviderImpl implements IUserProvider {
                 returnMap.put("userId", (String) result.get("username"));
                 returnMap.put("userName", (String) result.get("firstName"));
                 returnMap.put("email", (String) result.get("email"));
-                String password = getUserPassword(userId);
+                String password = getUserPassword(userId, realm);
 				if (password != null && !"".equals(password)) {
 					returnMap.put("password", password);
 				}
@@ -64,6 +69,12 @@ public class UserProviderImpl implements IUserProvider {
 					returnMap.put("tenantRealm", tenantRealm);
 				}
 				
+				// userType
+				List userTypeAttr = (List) attributes.get("userType");
+				if(userTypeAttr != null && userTypeAttr.size() > 0) {
+					String userType = (String) userTypeAttr.get(0);
+					returnMap.put("userType", userType);
+				}
 				// Master Realm admin
 				/*AccessToken accessToken = KeycloakUtil.getAccessToken();
 				if (accessToken != null) {
@@ -94,7 +105,19 @@ public class UserProviderImpl implements IUserProvider {
             uriVariables = new HashMap<String, String>();
             uriVariables.put("realm", realm);
         }
-        String queryApi = KeycloakUtil.getSecurityContextUrl()+"/admin/realms/{realm}/users";
+        
+        String keycloakAuthUrl = KeycloakUtil.getSecurityContextUrl();
+        if(keycloakAuthUrl == null) {
+        	keycloakAuthUrl = KeycloakUtil.getAuthServerUrl();
+        }
+        String queryApi = keycloakAuthUrl + "/admin/realms/{realm}/users";
+       
+        // 若没有会话信息，使用特定用户生成token
+        String accessToken = KeycloakUtil.getAccessTokenString();
+        if(accessToken == null) {
+        	accessToken = KeycloakUtil.impersonate();
+        	queryParams.put("accessToken", accessToken);
+        }
         return RestRequestProvider.get(queryApi, List.class, uriVariables, queryParams);
     }
     
@@ -116,7 +139,7 @@ public class UserProviderImpl implements IUserProvider {
     	return queryUsers(queryParams, tenantRealm);
     }
 
-    private String getUserPassword(String userId) {
+    private String getUserPassword(String userId, String realm) {
     	String userPwdEndpoint = "/indata-manage-portal/service/api/manage/tenants/realm/{realm}/user/{userId}/password";
 		
 		StringBuffer sr = new StringBuffer();
@@ -124,7 +147,7 @@ public class UserProviderImpl implements IUserProvider {
 		sr.append(userPwdEndpoint);
 		
 		Map<String, String> uriVariables = new HashMap<String, String>();
-		uriVariables.put("realm", KeycloakUtil.getRealm());
+		uriVariables.put("realm", realm);
 		uriVariables.put("userId", userId);
 		
 		String userPwd = RestRequestUtils.get(sr.toString(), String.class, uriVariables, null, null);

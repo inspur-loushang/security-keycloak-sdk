@@ -1,6 +1,7 @@
 package sdk.security.util;
 
 import java.io.File;
+import java.net.URL;
 
 /**
  * 增强 {@link PropertiesUtil},
@@ -19,7 +20,12 @@ public class PropertiesUtilEnhance {
 	}
 
 	private static boolean isFileExist(String filename) {
-		String path = PropertiesUtilEnhance.class.getClassLoader().getResource("/").getPath();
+		ClassLoader classLoader = PropertiesUtilEnhance.class.getClassLoader();
+		URL url = classLoader.getResource("/");
+		if(url == null) {
+			return false;
+		}
+		String path = url.getPath();
 		File f = new File(path+filename);
 		boolean exist = f.exists();
 		return exist;

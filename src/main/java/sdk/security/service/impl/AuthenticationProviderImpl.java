@@ -3,11 +3,17 @@ package sdk.security.service.impl;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+
 import org.keycloak.KeycloakSecurityContext;
 import org.keycloak.representations.AccessToken;
 
 import sdk.security.service.IAuthenticationProvider;
+import sdk.security.userinfo.UserProvider;
+import sdk.security.util.HttpServletThreadLocal;
 import sdk.security.util.KeycloakUtil;
+import sdk.security.util.StringUtil;
 
 /**
  * 认证
@@ -21,12 +27,11 @@ public class AuthenticationProviderImpl implements IAuthenticationProvider {
 	 * @return String userId[用户ID]
 	 */
 	public String getLoginUserId() {
-		try {
-			AccessToken token = KeycloakUtil.getAccessToken();
-			return token.getPreferredUsername();
-		} catch (Exception e) {
+		AccessToken token = KeycloakUtil.getAccessToken();
+		if(token == null) {
 			return null;
 		}
+		return token.getPreferredUsername();
 	}
 
 	/**
@@ -35,19 +40,11 @@ public class AuthenticationProviderImpl implements IAuthenticationProvider {
 	 * @return String，token信息
 	 */
 	public String getToken() {
-		try {
-			return KeycloakUtil.getAccessTokenString();
-		} catch (Exception e) {
-			return null;
-		}
+		return KeycloakUtil.getAccessTokenString();
 	}
 	
 	public String getIDToken() {
-		try {
-			return KeycloakUtil.getIDTokenString();
-		} catch (Exception e) {
-			return null;
-		}
+		return KeycloakUtil.getIDTokenString();
 	}
 
 	/**
@@ -74,12 +71,41 @@ public class AuthenticationProviderImpl implements IAuthenticationProvider {
 		try {
 			AccessToken token = KeycloakUtil.getAccessToken();
 			Map<String, String> map = new HashMap<String, String>();
+			String userId = token.getPreferredUsername();
 			map.put("userId", token.getPreferredUsername());
 			map.put("userName", token.getPreferredUsername());
 			map.put("email", token.getEmail());
+			
+			String userType = (String) getCustomSessionInfo("userType");
+			if(StringUtil.isEmptyString(userType)) {
+				Map<String, String> user = UserProvider.getUserInfo(userId);
+				userType = user.get("userType");
+				setCustomSessionInfo("userType", userType);
+			}
+			map.put("userType", userType);
 			return map;
 		} catch (Exception e) {
 			return null;
 		}
+	}
+	
+	public void setCustomSessionInfo(String key, Object value) {
+		HttpServletRequest request = HttpServletThreadLocal.getRequest();
+		if (request == null) {
+			return;
+		}
+		HttpSession session = request.getSession(true);
+		// TODO idle 10h
+		session.setMaxInactiveInterval(36000);
+		session.setAttribute(key, value);
+	}
+	
+	public Object getCustomSessionInfo(String key) {
+		HttpServletRequest request = HttpServletThreadLocal.getRequest();
+		if (request == null) {
+			return null;
+		}
+		HttpSession session = request.getSession(true);
+		return session.getAttribute(key);
 	}
 }

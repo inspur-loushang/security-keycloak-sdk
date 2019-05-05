@@ -6,9 +6,7 @@ import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.keycloak.KeycloakSecurityContext;
 import org.keycloak.adapters.KeycloakDeployment;
-import org.keycloak.adapters.RefreshableKeycloakSecurityContext;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -17,10 +15,8 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import sdk.security.util.PathBasedKeycloakConfigResolver;
-
 /**
- * REST API安全调用
+ * RESTful API调用
  * 
  * @author Data Security Group
  *
@@ -34,12 +30,12 @@ public class RestRequestUtils {
 	private static String resource;
 
 	static {
-		// KeycloakDeployment deployment = new
-		// PathBasedKeycloakConfigResolver().resolve(null);
 		KeycloakDeployment deployment = PathBasedKeycloakConfigResolver.nowDeployment;
-		authServerUrl = deployment.getAuthServerBaseUrl();
-		realm = deployment.getRealm();
-		resource = deployment.getResourceName();
+		if(deployment!=null) {
+			authServerUrl = deployment.getAuthServerBaseUrl();
+			realm = deployment.getRealm();
+			resource = deployment.getResourceName();
+		}
 
 	}
 
@@ -93,5 +89,38 @@ public class RestRequestUtils {
 		return response.getBody();
 	}
 
+	public static <T> T post(String url, Class<T> responseType, Map<String, String> uriVariables,
+			MultiValueMap<String, String> bodyVariables, HttpServletRequest request) {
 
+		if (uriVariables == null) {
+			uriVariables = new HashMap<String, String>();
+		}
+
+		String endpoint = integrate(url, uriVariables, request);
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+		HttpEntity<MultiValueMap<String, String>> requestEntity =
+				new HttpEntity<MultiValueMap<String, String>>(bodyVariables, headers);
+
+		HttpEntity<T> response = restTemplate.exchange(endpoint, HttpMethod.POST,
+				requestEntity, responseType, uriVariables);
+		
+		return response.getBody();
+	}
+	
+	public static <T> HttpEntity<T> post(String url, Class<T> responseType, Map uriVariables,
+			Map bodyVariables) {
+
+		if(uriVariables==null) {
+			uriVariables = new HashMap<Object, Object>();
+		}
+		
+		String endpoint = integrate(url, uriVariables, null);
+		HttpEntity<Map> entity = new HttpEntity<Map>(bodyVariables);
+		
+		HttpEntity<T> response =  restTemplate.exchange(endpoint,
+				HttpMethod.POST, entity, responseType, uriVariables);
+		
+		return response;
+	}
 }
